@@ -1,0 +1,250 @@
+<?php namespace ProcessWire;
+
+class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
+
+	/**
+	 * Module information
+	 */
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Custom Admin Menus',
+			'summary' => 'Adds up to three custom dropdowns to the main admin menu.',
+			'version' => '0.1.0',
+			'author' => 'Robin Sallis',
+			'href' => 'https://github.com/Toutouwai/CustomAdminMenus',
+			'icon' => 'caret-down',
+			'autoload' => 'template=admin',
+			'requires' => 'ProcessWire>=3.0.178, PHP>=5.4.0',
+		);
+	}
+
+	/**
+	 * Ready
+	 */
+	public function ready() {
+		// Prevent main admin menu from being cached
+		$this->addHookBefore('ProcessController::execute', function(HookEvent $event) {
+			$this->wire()->session->removeFor('AdminThemeUikit', 'prnav');
+		});
+
+		$this->addHookAfter('AdminThemeFramework::getPrimaryNavArray', $this, 'afterPrimaryNavArray');
+		$this->addHookBefore('ProcessHome::execute', $this, 'beforeProcessHome');
+		$this->addHookBefore('ProcessModule::executeEdit', $this, 'addConfigAssets');
+	}
+
+	/**
+	 * Get menu children
+	 *
+	 * @param int $menu_number
+	 * @return array
+	 */
+	protected function ___getMenuChildren($menu_number) {
+		$children = [];
+		if($menu_number > 0 && $menu_number <= 3) {
+			$json_fname = "menu_{$menu_number}_json";
+			$children = $this->$json_fname ? wireDecodeJSON($this->$json_fname) : [];
+		}
+		return $children;
+	}
+
+	/**
+	 * After AdminThemeFramework::getPrimaryNavArray
+	 */
+	protected function afterPrimaryNavArray(HookEvent $event) {
+		$items = $event->return;
+		for($i = 1; $i <= 3; $i++) {
+			$label_fname = "menu_{$i}_label";
+			if(!$this->$label_fname) continue;
+			$url_fname = "menu_{$i}_url";
+			$url = $this->$url_fname;
+			if(!$url) $url = $this->wire()->config->urls->admin . "?menu=$i";
+			$child_data = $this->getMenuChildren($i);
+			$children = [];
+			foreach($child_data as $child) {
+				$children[] = [
+					'id' => 0,
+					'parent_id' => 0,
+					'name' => '',
+					'title' => $child['label'],
+					'url' => $child['url'],
+					'icon' => $child['icon'],
+					'children' => [],
+				];
+			}
+			$items[] = [
+				'id' => 0,
+				'parent_id' => 0,
+				'name' => '',
+				'title' => $this->$label_fname,
+				'url' => $url,
+				'icon' => '',
+				'children' => $children,
+			];
+		}
+		$event->return = $items;
+	}
+
+	/**
+	 * Before ProcessHome::execute
+	 *
+	 * @param HookEvent $event
+	 */
+	protected function beforeProcessHome(HookEvent $event) {
+		$menu_number = (int) $this->wire()->input->get('menu');
+		if(!$menu_number) return;
+		$child_data = $this->getMenuChildren($menu_number);
+		if($child_data) {
+			$menu_label_fname = "menu_{$menu_number}_label";
+			$label = $this->$menu_label_fname;
+			if(!$label) return;
+			$event->replace = true;
+			$this->wire('processBrowserTitle', $label);
+			$this->wire('processHeadline', $label);
+			$out = <<<EOT
+<style>
+.cam-menu-list { list-style-type:none; padding:0; }
+.cam-menu-list li { padding-bottom:8px; }
+.cam-menu-list li i { margin-right:5px; }
+</style>
+EOT;
+			$out .= '<ul class="cam-menu-list">';
+			foreach($child_data as $child) {
+				$icon = $child['icon'] ? "<i class='fa fa-fw fa-{$child['icon']}'></i>" : '';
+				$out .= "<li><a href='{$child['url']}'>$icon{$child['label']}</a></li>";
+			}
+			$out .= '</ul>';
+			$event->return = $out;
+		}
+	}
+
+	/**
+	 * Add CSS and JS for module config page
+	 *
+	 * @param HookEvent $event
+	 */
+	protected function addConfigAssets(HookEvent $event) {
+		if($this->wire()->input->get->name !== $this->className) return;
+		$info = $this->getModuleInfo();
+		$version = $info['version'];
+		$config = $this->config;
+		$config->styles->add($config->urls->$this . "CustomAdminMenusConfig.css?v=$version");
+		$config->scripts->add($config->urls->$this . "CustomAdminMenusConfig.js?v=$version");
+	}
+
+	/**
+	 * Add markup for a child link row
+	 *
+	 * @param int $menu_number
+	 * @return InputfieldFieldset
+	 */
+	protected function getMenuFieldset($menu_number) {
+		$modules = $this->wire()->modules;
+		$labels = [
+			'link_icon' => $this->_('Icon'),
+			'link_label' => $this->_('Label'),
+			'link_url' => $this->_('URL'),
+			'add_row' => $this->_('Add new'),
+		];
+
+		/** @var InputfieldFieldset $f */
+		$fs = $modules->get('InputfieldFieldset');
+		$fs->label = $this->_('Menu') . " $menu_number";
+		$fs->wrapClass('cam-menu');
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f_name = "menu_{$menu_number}_label";
+		$f->name = $f_name;
+		$f->label = $this->_('Label');
+		$f->value = $this->$f_name;
+		$f->columnWidth = 30;
+		$fs->add($f);
+		// Menu fieldset is collapsed if the menu has no label
+		if(!$f->value) $fs->collapsed = Inputfield::collapsedYes;
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f_name = "menu_{$menu_number}_url";
+		$f->name = $f_name;
+		$f->label = $this->_('URL');
+		$f->notes = $this->_('If empty the menu will link to list of child links.');
+		$f->value = $this->$f_name;
+		$f->columnWidth = 70;
+		$fs->add($f);
+
+		/** @var InputfieldTextarea $f */
+		$f = $modules->get('InputfieldTextarea');
+		$f_name = "menu_{$menu_number}_json";
+		$f->name = $f_name;
+		$f->label = 'Child links JSON';
+		$f->wrapClass('cam-menu-json-wrap');
+		$f->addClass('cam-menu-json');
+		$f->value = $this->$f_name;
+		$fs->add($f);
+
+		$json_fname = "menu_{$menu_number}_json";
+		$rows = $this->$json_fname ? wireDecodeJSON($this->$json_fname) : [];
+		$class = $rows ? ' has-rows' : '';
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup');
+		$f->label = $this->_('Child links');
+		$f->value = <<<EOT
+<div class="cam-row-heads$class">
+	<div class="cam-row-sort-wrap"></div>
+	<div class="cam-link-icon-wrap"><h3>{$labels['link_icon']}</h3></div>
+	<div class="cam-link-label-wrap"><h3>{$labels['link_label']}</h3></div>
+	<div class="cam-link-url-wrap"><h3>{$labels['link_url']}</h3></div>
+	<div class="cam-row-delete-wrap"></div>
+</div>
+EOT;
+		$f->value .= '<div class="cam-row-template">' . $this->childRowMarkup() . '</div>';
+		$f->value .= '<div class="cam-child-rows">';
+		foreach($rows as $row) {
+			$f->value .= $this->childRowMarkup([
+				'icon' => $row['icon'],
+				'label' => $row['label'],
+				'url' => $row['url'],
+			]);
+		}
+		$f->value .= '</div>';
+		$f->value .= "<button type='button' class='cam-add-row'><i class='fa fa-plus-circle'></i> <span class='label'>{$labels['add_row']}</span></button>";
+		$fs->add($f);
+
+		return $fs;
+	}
+
+	/**
+	 * Add markup for a child link row
+	 *
+	 * @param array $values
+	 * @return string
+	 */
+	protected function childRowMarkup($values = []) {
+		if(!$values) $values = [
+			'icon' => '',
+			'label' => '',
+			'url' => '',
+		];
+		return <<<EOT
+<div class="cam-child-row">
+	<div class="cam-row-sort-wrap"><i class="fa fa-fw fa-arrows cam-row-sort"></i></div>
+	<div class="cam-link-icon-wrap"><input type="text" class="uk-input cam-link-icon" value="{$values['icon']}"></div>
+	<div class="cam-link-label-wrap"><input type="text" class="uk-input cam-link-label" value="{$values['label']}"></div>
+	<div class="cam-link-url-wrap"><input type="text" class="uk-input cam-link-url" value="{$values['url']}"></div>
+	<div class="cam-row-delete-wrap"><i class="fa fa-fw fa-trash-o cam-row-delete"></i></div>
+</div>
+EOT;
+	}
+
+	/**
+	 * Config inputfields
+	 *
+	 * @param InputfieldWrapper $inputfields
+	 */
+	public function getModuleConfigInputfields($inputfields) {
+		for($i = 1; $i <= 3; $i++) {
+			$inputfields->add($this->getMenuFieldset($i));
+		}
+	}
+
+}

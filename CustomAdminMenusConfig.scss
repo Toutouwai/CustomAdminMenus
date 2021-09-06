@@ -1,0 +1,21 @@
+.cam-menu-json-wrap { display:none; }
+.cam-row-template { display:none; }
+.cam-row-heads { display:none; flex-flow:row wrap; padding-bottom:5px; border-bottom:1px solid #e5e5e5;
+	&.has-rows { display:flex; }
+	h3 { color:#6c8dae; text-transform:uppercase; font-size:13px; font-weight:bold; margin:0; }
+}
+.cam-child-row { display:flex; flex-flow:row wrap; align-items:center; padding-top:5px; padding-bottom:5px; border-top:1px solid #e5e5e5; border-bottom:1px solid #e5e5e5; background:white; margin-top:-1px; }
+.cam-row-sort-wrap { width:20px; justify-content:center;
+	i { cursor:move; }
+}
+.cam-row-delete-wrap { width:20px; justify-content:center; text-align:right;
+	i { cursor:pointer; }
+}
+.cam-link-icon-wrap { width:15%; padding-left:5px; padding-right:5px; }
+.cam-link-label-wrap { width:30%; padding-left:5px; padding-right:5px; }
+.cam-link-url-wrap { padding-left:5px; padding-right:5px; flex-grow:1; }
+.cam-add-row { border:none; background:none; color:#e83561; cursor:pointer; font-size:16px; padding:0; margin-top:10px;
+	&:hover, &:focus { color:#d21846;
+		.label { text-decoration:underline; }
+	}
+}
