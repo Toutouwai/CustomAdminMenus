@@ -6,6 +6,8 @@ The menu items can link to admin pages, front-end pages, or pages on external we
 
 The links can be set to open in a new browser tab, and child links in the dropdown can be given an icon.
 
+Requires ProcessWire v3.0.178 or newer.
+
 ## Screenshots
 
 #### Example of menu items
