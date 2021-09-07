@@ -187,7 +187,7 @@ EOT;
 		$f_name = "menu_{$menu_number}_url";
 		$f->name = $f_name;
 		$f->label = $this->_('URL');
-		$f->notes = $this->_('If empty the menu will link to list of child links.');
+		$f->notes = $this->_('If empty the menu will link to a list of child links.');
 		$f->value = $this->$f_name;
 		$f->columnWidth = 50;
 		$fs->add($f);
