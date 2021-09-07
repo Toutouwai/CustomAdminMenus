@@ -16,7 +16,7 @@ Requires ProcessWire v3.0.178 or newer.
 
 #### Module config for the menus
 
-![cam-2](https://user-images.githubusercontent.com/1538852/132320788-0087fc15-9112-4a70-bf0e-3f93c1c482ef.png)
+![cam-2](https://user-images.githubusercontent.com/1538852/132323138-29d675ef-9f1a-4f23-a482-25a075505a4a.png)
 
 #### Link list shown when parent menu item is not given a URL
 
