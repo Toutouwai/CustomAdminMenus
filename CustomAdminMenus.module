@@ -22,14 +22,23 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 	 * Ready
 	 */
 	public function ready() {
-		// Prevent main admin menu from being cached
-		$this->addHookBefore('ProcessController::execute', function(HookEvent $event) {
-			$this->wire()->session->removeFor('AdminThemeUikit', 'prnav');
-		});
-
+		$this->addHookBefore('ProcessController::execute', $this, 'beforeProcessController');
 		$this->addHookAfter('AdminThemeFramework::getPrimaryNavArray', $this, 'afterPrimaryNavArray');
 		$this->addHookBefore('ProcessHome::execute', $this, 'beforeProcessHome');
 		$this->addHookBefore('ProcessModule::executeEdit', $this, 'addConfigAssets');
+	}
+
+	/**
+	 * Before ProcessController::execute
+	 */
+	protected function beforeProcessController(HookEvent $event) {
+		// Prevent main admin menu from being cached
+		$this->wire()->session->removeFor('AdminThemeUikit', 'prnav');
+		// Add JS
+		$info = $this->getModuleInfo();
+		$version = $info['version'];
+		$config = $this->wire()->config;
+		$this->wire()->config->scripts->add($config->urls->$this . "CustomAdminMenus.js?v=$version");
 	}
 
 	/**
@@ -41,8 +50,8 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 	protected function ___getMenuChildren($menu_number) {
 		$children = [];
 		if($menu_number > 0 && $menu_number <= 3) {
-			$json_fname = "menu_{$menu_number}_json";
-			$children = $this->$json_fname ? wireDecodeJSON($this->$json_fname) : [];
+			$json = $this->get("menu_{$menu_number}_json");
+			$children = $json ? wireDecodeJSON($json) : [];
 		}
 		return $children;
 	}
@@ -53,32 +62,40 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 	protected function afterPrimaryNavArray(HookEvent $event) {
 		$items = $event->return;
 		for($i = 1; $i <= 3; $i++) {
-			$label_fname = "menu_{$i}_label";
-			if(!$this->$label_fname) continue;
-			$url_fname = "menu_{$i}_url";
-			$url = $this->$url_fname;
-			if(!$url) $url = $this->wire()->config->urls->admin . "?menu=$i";
+			$label = $this->get("menu_{$i}_label");
+			if(!$label) continue;
+			$url = $this->get("menu_{$i}_url");
+			$newtab = $this->get("menu_{$i}_newtab");
+			if($url) {
+				if($newtab) $url = '*' . $url;
+			} else {
+				$url = $this->wire()->config->urls->admin . "?menu=$i";
+			}
 			$child_data = $this->getMenuChildren($i);
 			$children = [];
 			foreach($child_data as $child) {
+				if(!isset($child['newtab'])) $child['newtab'] = false;
+				$child_url = $child['newtab'] ? '*' . $child['url'] : $child['url'];
 				$children[] = [
 					'id' => 0,
 					'parent_id' => 0,
 					'name' => '',
 					'title' => $child['label'],
-					'url' => $child['url'],
+					'url' => $child_url,
 					'icon' => $child['icon'],
 					'children' => [],
+					'navJSON' => '',
 				];
 			}
 			$items[] = [
 				'id' => 0,
 				'parent_id' => 0,
 				'name' => '',
-				'title' => $this->$label_fname,
+				'title' => $label,
 				'url' => $url,
 				'icon' => '',
 				'children' => $children,
+				'navJSON' => '',
 			];
 		}
 		$event->return = $items;
@@ -94,8 +111,7 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 		if(!$menu_number) return;
 		$child_data = $this->getMenuChildren($menu_number);
 		if($child_data) {
-			$menu_label_fname = "menu_{$menu_number}_label";
-			$label = $this->$menu_label_fname;
+			$label = $this->get("menu_{$menu_number}_label");
 			if(!$label) return;
 			$event->replace = true;
 			$this->wire('processBrowserTitle', $label);
@@ -107,10 +123,13 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 .cam-menu-list li i { margin-right:5px; }
 </style>
 EOT;
-			$out .= '<ul class="cam-menu-list">';
+			$out .= "<ul class='cam-menu-list' data-menu='$menu_number'>";
 			foreach($child_data as $child) {
+				if(!isset($child['newtab'])) $child['newtab'] = false;
 				$icon = $child['icon'] ? "<i class='fa fa-fw fa-{$child['icon']}'></i>" : '';
-				$out .= "<li><a href='{$child['url']}'>$icon{$child['label']}</a></li>";
+				$url = $child['url'];
+				if($child['newtab']) $url = '*' . $url;
+				$out .= "<li><a href='$url'>$icon{$child['label']}</a></li>";
 			}
 			$out .= '</ul>';
 			$event->return = $out;
@@ -126,7 +145,7 @@ EOT;
 		if($this->wire()->input->get->name !== $this->className) return;
 		$info = $this->getModuleInfo();
 		$version = $info['version'];
-		$config = $this->config;
+		$config = $this->wire()->config;
 		$config->styles->add($config->urls->$this . "CustomAdminMenusConfig.css?v=$version");
 		$config->scripts->add($config->urls->$this . "CustomAdminMenusConfig.js?v=$version");
 	}
@@ -143,6 +162,7 @@ EOT;
 			'link_icon' => $this->_('Icon'),
 			'link_label' => $this->_('Label'),
 			'link_url' => $this->_('URL'),
+			'link_newtab' => $this->_('New tab'),
 			'add_row' => $this->_('Add new'),
 		];
 
@@ -169,7 +189,16 @@ EOT;
 		$f->label = $this->_('URL');
 		$f->notes = $this->_('If empty the menu will link to list of child links.');
 		$f->value = $this->$f_name;
-		$f->columnWidth = 70;
+		$f->columnWidth = 50;
+		$fs->add($f);
+
+		/* @var InputfieldCheckbox $f */
+		$f = $modules->InputfieldCheckbox;
+		$f_name = "menu_{$menu_number}_newtab";
+		$f->name = $f_name;
+		$f->label = $this->_('Open in new tab');
+		$f->checked = $this->$f_name === 1 ? 'checked' : '';
+		$f->columnWidth = 20;
 		$fs->add($f);
 
 		/** @var InputfieldTextarea $f */
@@ -182,8 +211,8 @@ EOT;
 		$f->value = $this->$f_name;
 		$fs->add($f);
 
-		$json_fname = "menu_{$menu_number}_json";
-		$rows = $this->$json_fname ? wireDecodeJSON($this->$json_fname) : [];
+		$json = $this->get("menu_{$menu_number}_json");
+		$rows = $json ? wireDecodeJSON($json) : [];
 		$class = $rows ? ' has-rows' : '';
 		/** @var InputfieldMarkup $f */
 		$f = $modules->get('InputfieldMarkup');
@@ -194,6 +223,7 @@ EOT;
 	<div class="cam-link-icon-wrap"><h3>{$labels['link_icon']}</h3></div>
 	<div class="cam-link-label-wrap"><h3>{$labels['link_label']}</h3></div>
 	<div class="cam-link-url-wrap"><h3>{$labels['link_url']}</h3></div>
+	<div class="cam-link-newtab-wrap"><h3>{$labels['link_newtab']}</h3></div>
 	<div class="cam-row-delete-wrap"></div>
 </div>
 EOT;
@@ -204,6 +234,7 @@ EOT;
 				'icon' => $row['icon'],
 				'label' => $row['label'],
 				'url' => $row['url'],
+				'newtab' => $row['newtab'],
 			]);
 		}
 		$f->value .= '</div>';
@@ -224,13 +255,16 @@ EOT;
 			'icon' => '',
 			'label' => '',
 			'url' => '',
+			'newtab' => '',
 		];
+		$checked = $values['newtab'] ? ' checked' : '';
 		return <<<EOT
 <div class="cam-child-row">
 	<div class="cam-row-sort-wrap"><i class="fa fa-fw fa-arrows cam-row-sort"></i></div>
 	<div class="cam-link-icon-wrap"><input type="text" class="uk-input cam-link-icon" value="{$values['icon']}"></div>
 	<div class="cam-link-label-wrap"><input type="text" class="uk-input cam-link-label" value="{$values['label']}"></div>
 	<div class="cam-link-url-wrap"><input type="text" class="uk-input cam-link-url" value="{$values['url']}"></div>
+	<div class="cam-link-newtab-wrap"><input type="checkbox" class="uk-checkbox cam-link-newtab"$checked></div>
 	<div class="cam-row-delete-wrap"><i class="fa fa-fw fa-trash-o cam-row-delete"></i></div>
 </div>
 EOT;

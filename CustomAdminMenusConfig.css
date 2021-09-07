@@ -48,7 +48,7 @@
   padding-right: 5px; }
 
 .cam-link-label-wrap {
-  width: 30%;
+  width: 28%;
   padding-left: 5px;
   padding-right: 5px; }
 
@@ -56,6 +56,10 @@
   padding-left: 5px;
   padding-right: 5px;
   flex-grow: 1; }
+
+.cam-link-newtab-wrap {
+  width: 8%;
+  padding-left: 5px; }
 
 .cam-add-row {
   border: none;

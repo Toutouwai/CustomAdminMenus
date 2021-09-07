@@ -12,8 +12,9 @@
 	i { cursor:pointer; }
 }
 .cam-link-icon-wrap { width:15%; padding-left:5px; padding-right:5px; }
-.cam-link-label-wrap { width:30%; padding-left:5px; padding-right:5px; }
+.cam-link-label-wrap { width:28%; padding-left:5px; padding-right:5px; }
 .cam-link-url-wrap { padding-left:5px; padding-right:5px; flex-grow:1; }
+.cam-link-newtab-wrap { width:8%; padding-left:5px; }
 .cam-add-row { border:none; background:none; color:#e83561; cursor:pointer; font-size:16px; padding:0; margin-top:10px;
 	&:hover, &:focus { color:#d21846;
 		.label { text-decoration:underline; }

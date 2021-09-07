@@ -9,8 +9,9 @@
 				var icon = $(this).find('.cam-link-icon').val().trim();
 				var label = $(this).find('.cam-link-label').val().trim();
 				var url = $(this).find('.cam-link-url').val().trim();
+				var newtab = $(this).find('.cam-link-newtab').is(':checked');
 				if(!label || !url) return;
-				data.push({'icon': icon, 'label': label, 'url': url});
+				data.push({'icon': icon, 'label': label, 'url': url, 'newtab': newtab});
 			});
 			$json_field.val(JSON.stringify(data));
 		});
