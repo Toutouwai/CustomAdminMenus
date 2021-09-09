@@ -9,7 +9,7 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 		return array(
 			'title' => 'Custom Admin Menus',
 			'summary' => 'Adds up to three custom dropdowns to the main admin menu.',
-			'version' => '0.1.0',
+			'version' => '0.1.1',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/CustomAdminMenus',
 			'icon' => 'caret-down',
@@ -32,8 +32,9 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 	 * Before ProcessController::execute
 	 */
 	protected function beforeProcessController(HookEvent $event) {
-		// Prevent main admin menu from being cached
+		// Prevent admin menus from being cached
 		$this->wire()->session->removeFor('AdminThemeUikit', 'prnav');
+		$this->wire()->session->removeFor('AdminThemeUikit', 'sidenav');
 		// Add JS
 		$info = $this->getModuleInfo();
 		$version = $info['version'];
@@ -57,6 +58,33 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
+	 * Prepare menu items array
+	 *
+	 * @param array $raw_data
+	 * @return array
+	 */
+	protected function prepareMenuItems($raw_data) {
+		$items = [];
+		foreach($raw_data as $raw_item) {
+			if(!isset($raw_item['newtab'])) $raw_item['newtab'] = false;
+			$url = $raw_item['newtab'] ? '*' . $raw_item['url'] : $raw_item['url'];
+			$children = [];
+			if(isset($raw_item['children']) && is_array($raw_item['children'])) $children = $raw_item['children'];
+			$items[] = [
+				'id' => 0,
+				'parent_id' => 0,
+				'name' => '',
+				'title' => $raw_item['label'],
+				'url' => $url,
+				'icon' => $raw_item['icon'],
+				'children' => $this->prepareMenuItems($children),
+				'navJSON' => '',
+			];
+		}
+		return $items;
+	}
+
+	/**
 	 * After AdminThemeFramework::getPrimaryNavArray
 	 */
 	protected function afterPrimaryNavArray(HookEvent $event) {
@@ -64,29 +92,9 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 		for($i = 1; $i <= 3; $i++) {
 			$label = $this->get("menu_{$i}_label");
 			if(!$label) continue;
-			$url = $this->get("menu_{$i}_url");
-			$newtab = $this->get("menu_{$i}_newtab");
-			if($url) {
-				if($newtab) $url = '*' . $url;
-			} else {
-				$url = $this->wire()->config->urls->admin . "?menu=$i";
-			}
-			$child_data = $this->getMenuChildren($i);
-			$children = [];
-			foreach($child_data as $child) {
-				if(!isset($child['newtab'])) $child['newtab'] = false;
-				$child_url = $child['newtab'] ? '*' . $child['url'] : $child['url'];
-				$children[] = [
-					'id' => 0,
-					'parent_id' => 0,
-					'name' => '',
-					'title' => $child['label'],
-					'url' => $child_url,
-					'icon' => $child['icon'],
-					'children' => [],
-					'navJSON' => '',
-				];
-			}
+			$url = $this->get("menu_{$i}_url") ?: $this->wire()->config->urls->admin . "?menu=$i";
+			$children = $this->getMenuChildren($i);
+			$children = $this->prepareMenuItems($children);
 			$items[] = [
 				'id' => 0,
 				'parent_id' => 0,
@@ -102,6 +110,27 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
+	 * Renders an unordered list
+	 *
+	 * @param array $children
+	 * @return string
+	 */
+	protected function renderList($children) {
+		$out = '<ul>';
+		foreach($children as $child) {
+			if(!isset($child['newtab'])) $child['newtab'] = false;
+			$icon = $child['icon'] ? "<i class='fa fa-fw fa-{$child['icon']}'></i>" : '';
+			$url = $child['url'];
+			if($child['newtab']) $url = '*' . $url;
+			$submenu = '';
+			if(!empty($child['children'])) $submenu = $this->renderList($child['children']);
+			$out .= "<li><a href='$url'>$icon{$child['label']}</a>$submenu</li>";
+		}
+		$out .= '</ul>';
+		return $out;
+	}
+
+	/**
 	 * Before ProcessHome::execute
 	 *
 	 * @param HookEvent $event
@@ -109,8 +138,8 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 	protected function beforeProcessHome(HookEvent $event) {
 		$menu_number = (int) $this->wire()->input->get('menu');
 		if(!$menu_number) return;
-		$child_data = $this->getMenuChildren($menu_number);
-		if($child_data) {
+		$children = $this->getMenuChildren($menu_number);
+		if($children) {
 			$label = $this->get("menu_{$menu_number}_label");
 			if(!$label) return;
 			$event->replace = true;
@@ -118,20 +147,15 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 			$this->wire('processHeadline', $label);
 			$out = <<<EOT
 <style>
-.cam-menu-list { list-style-type:none; padding:0; }
-.cam-menu-list li { padding-bottom:8px; }
+.cam-menu-list ul { list-style-type:none; padding:0; }
+.cam-menu-list ul ul { padding-left:30px; }
+.cam-menu-list li { padding-top:8px; }
 .cam-menu-list li i { margin-right:5px; }
 </style>
 EOT;
-			$out .= "<ul class='cam-menu-list' data-menu='$menu_number'>";
-			foreach($child_data as $child) {
-				if(!isset($child['newtab'])) $child['newtab'] = false;
-				$icon = $child['icon'] ? "<i class='fa fa-fw fa-{$child['icon']}'></i>" : '';
-				$url = $child['url'];
-				if($child['newtab']) $url = '*' . $url;
-				$out .= "<li><a href='$url'>$icon{$child['label']}</a></li>";
-			}
-			$out .= '</ul>';
+			$out .= "<div class='cam-menu-list' data-menu='$menu_number'>";
+			$out .= $this->renderList($children);
+			$out .= '</div>';
 			$event->return = $out;
 		}
 	}

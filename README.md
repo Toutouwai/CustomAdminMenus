@@ -47,3 +47,78 @@ $wire->addHookAfter('CustomAdminMenus::getMenuChildren', function(HookEvent $eve
     }
 });
 ```
+
+It's also possible to create multiple levels of flyout submenus using a hook. 
+
+![cam-4](https://user-images.githubusercontent.com/1538852/132603335-c531d819-4f01-4e28-8900-45956a856dc1.png)
+
+For each level a submenu can be defined in a "children" item. Example:
+```php
+$wire->addHookAfter('CustomAdminMenus::getMenuChildren', function(HookEvent $event) {
+    // The menu number is the first argument
+    $menu_number = $event->arguments(0);
+    if($menu_number === 1) {
+        $children = [
+            [
+                'icon' => 'adjust',
+                'label' => 'One',
+                'url' => '/one/',
+                'newtab' => false,
+            ],
+            [
+                'icon' => 'anchor',
+                'label' => 'Two',
+                'url' => '/two/',
+                'newtab' => false,
+                'children' => [
+                    [
+                        'icon' => 'child',
+                        'label' => 'Red',
+                        'url' => '/red/',
+                        'newtab' => false,
+                    ],
+                    [
+                        'icon' => 'bullhorn',
+                        'label' => 'Green',
+                        'url' => '/green/',
+                        'newtab' => false,
+                        'children' => [
+                            [
+                                'icon' => 'wifi',
+                                'label' => 'Small',
+                                'url' => '/small/',
+                                'newtab' => true,
+                            ],
+                            [
+                                'icon' => 'codepen',
+                                'label' => 'Medium',
+                                'url' => '/medium/',
+                                'newtab' => false,
+                            ],
+                            [
+                                'icon' => 'cogs',
+                                'label' => 'Large',
+                                'url' => '/large/',
+                                'newtab' => false,
+                            ],
+                        ]
+                    ],
+                    [
+                        'icon' => 'futbol-o',
+                        'label' => 'Blue',
+                        'url' => '/blue/',
+                        'newtab' => true,
+                    ],
+                ]
+            ],
+            [
+                'icon' => 'hand-o-left',
+                'label' => 'Three',
+                'url' => '/three/',
+                'newtab' => false,
+            ],
+        ];
+        $event->return = $children;
+    }
+});
+```
