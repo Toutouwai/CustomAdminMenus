@@ -9,7 +9,7 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 		return array(
 			'title' => 'Custom Admin Menus',
 			'summary' => 'Adds up to three custom dropdowns to the main admin menu.',
-			'version' => '0.1.1',
+			'version' => '0.1.2',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/CustomAdminMenus',
 			'icon' => 'caret-down',
@@ -94,6 +94,7 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 			if(!$label) continue;
 			$url = $this->get("menu_{$i}_url") ?: $this->wire()->config->urls->admin . "?menu=$i";
 			$children = $this->getMenuChildren($i);
+			if($children === false) continue;
 			$children = $this->prepareMenuItems($children);
 			$items[] = [
 				'id' => 0,

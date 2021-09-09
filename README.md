@@ -24,6 +24,8 @@ Requires ProcessWire v3.0.178 or newer.
 
 ## Advanced
 
+### Setting child menu items dynamically
+
 If needed you can set the child menu items dynamically using a hook.
 
 Example:
@@ -47,6 +49,8 @@ $wire->addHookAfter('CustomAdminMenus::getMenuChildren', function(HookEvent $eve
     }
 });
 ```
+
+### Create multiple levels of flyout menus
 
 It's also possible to create multiple levels of flyout submenus using a hook. 
 
@@ -119,6 +123,28 @@ $wire->addHookAfter('CustomAdminMenus::getMenuChildren', function(HookEvent $eve
             ],
         ];
         $event->return = $children;
+    }
+});
+```
+
+### Showing/hiding menus according to user role
+
+You can determine which menu items can be seen by a role by checking the user's role in the hook.
+
+For example, if a user has or lacks a role you could include different child menu items in the hook return value. Or if you want to conditionally hide a custom menu altogether you can set the return value to **false**. Example:
+
+```php
+$wire->addHookAfter('CustomAdminMenus::getMenuChildren', function(HookEvent $event) {
+    // The menu number is the first argument
+    $menu_number = $event->arguments(0);
+    $user = $event->wire()->user;
+    // For custom menu number 1...
+    if($menu_number === 1) {
+        // ...if user does not have some particular role...
+        if(!$user->hasRole('foo')) {
+            // ...do not show the menu
+            $event->return = false;
+        }
     }
 });
 ```
