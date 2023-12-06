@@ -9,7 +9,7 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 		return array(
 			'title' => 'Custom Admin Menus',
 			'summary' => 'Adds up to three custom dropdowns to the main admin menu.',
-			'version' => '0.1.4',
+			'version' => '0.1.5',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/CustomAdminMenus',
 			'icon' => 'caret-down',
@@ -107,6 +107,7 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 	protected function afterPrimaryNavArray(HookEvent $event) {
 		$items = $event->return;
 		for($i = 1; $i <= 3; $i++) {
+			$icon = $this->get("menu_{$i}_icon");
 			$label = $this->get("menu_{$i}_label");
 			if(!$label) continue;
 			if($this->get("menu_{$i}_url")) {
@@ -114,6 +115,8 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 			} else {
 				$url = $this->wire()->config->urls->admin . "?menu=$i";
 			}
+			$newtab = $this->get("menu_{$i}_newtab");
+			if($newtab) $url = '*' . $url;
 			$children = $this->getMenuChildren($i);
 			if($children === false) continue;
 			$children = $this->prepareMenuItems($children);
@@ -123,7 +126,7 @@ class CustomAdminMenus extends WireData implements Module, ConfigurableModule {
 				'name' => '',
 				'title' => $label,
 				'url' => $url,
-				'icon' => '',
+				'icon' => $icon,
 				'children' => $children,
 				'navJSON' => '',
 			];
@@ -219,11 +222,23 @@ EOT;
 
 		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
+		$f_name = "menu_{$menu_number}_icon";
+		$f->name = $f_name;
+		$f->label = $this->_('Icon');
+		$f->notes = $this->_('Only shown in sidebar nav.');
+		$f->value = $this->$f_name;
+		$f->columnWidth = 17;
+		$fs->add($f);
+		// Menu fieldset is collapsed if the menu has no label
+		if(!$f->value) $fs->collapsed = Inputfield::collapsedYes;
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
 		$f_name = "menu_{$menu_number}_label";
 		$f->name = $f_name;
 		$f->label = $this->_('Label');
 		$f->value = $this->$f_name;
-		$f->columnWidth = 30;
+		$f->columnWidth = 26;
 		$fs->add($f);
 		// Menu fieldset is collapsed if the menu has no label
 		if(!$f->value) $fs->collapsed = Inputfield::collapsedYes;
@@ -235,7 +250,7 @@ EOT;
 		$f->label = $this->_('URL');
 		$f->notes = $this->_('If empty the menu will link to a list of child links.');
 		$f->value = $this->$f_name;
-		$f->columnWidth = 50;
+		$f->columnWidth = 40;
 		$fs->add($f);
 
 		/* @var InputfieldCheckbox $f */
@@ -244,7 +259,7 @@ EOT;
 		$f->name = $f_name;
 		$f->label = $this->_('Open in new tab');
 		$f->checked = $this->$f_name === 1 ? 'checked' : '';
-		$f->columnWidth = 20;
+		$f->columnWidth = 17;
 		$fs->add($f);
 
 		/** @var InputfieldTextarea $f */

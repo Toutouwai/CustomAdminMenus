@@ -3,7 +3,7 @@
 	$(document).ready(function() {
 
 		// Make menu links with hrefs that start with an asterisk open in a new tab
-		$('.pw-primary-nav, .cam-menu-list').find('a[href^="*"]').each(function() {
+		$('.pw-primary-nav, .pw-sidebar-nav, .cam-menu-list').find('a[href^="*"]').each(function() {
 			$(this).attr('href', $(this).attr('href').substring(1)).attr('target', '_blank');
 		});
 
